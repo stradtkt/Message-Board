@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const models = require('./models');
+const { Schema } = mongoose;
 const express = require('express');
 const path = require('path');
 const parser = require('body-parser');
@@ -9,12 +9,66 @@ const app = express();
 mongoose.connect('mongodb://localhost:27017/message_board', {useNewUrlParser: true});
 mongoose.connection.on('connected', () => console.log("MongoDB is now connected"));
 
+
+const commentSchema = new Schema({
+    name: {
+        type: String,
+        required: [true, 'Name for the message is required'],
+        trim: true,
+        min: [3, 'Name has a min length of 3'],
+        max: [30, 'Name has a max length of 30']
+    },
+    comment: {
+        type: String,
+        trim: true,
+        required: [true, 'Comment content is required to post a message'],
+        min: [10, 'Comment content has a min length of 10'],
+        max: [255, 'Comment content has a max length of 255']
+    },
+    created_at: {
+        type: Date,
+        default: Date.now
+    }
+}, 
+{
+    timestamps: true
+});
+
+const messageSchema = new Schema({
+    name: {
+        type: String,
+        required: [true, 'Name for the message is required'],
+        trim: true,
+        min: [3, 'Name has a min length of 3'],
+        max: [30, 'Name has a max length of 30']
+    },
+    message: {
+        type: String,
+        trim: true,
+        required: [true, 'Message content is required to post a message'],
+        min: [10, 'Message content has a min length of 10'],
+        max: [1000, 'Message content has a max length of 1000']
+    },
+    comments: [commentSchema],
+    created_at: {
+        type: Date,
+        default: Date.now
+    }
+}, 
+{
+    timestamps: true
+});
+const Message = mongoose.model('Message', messageSchema);
+const Comments = mongoose.model("Comment", commentSchema);
+
+
+
+
 let messageErrors = {},
     commentErrors = {};
 
-app
-    .set('view engine', 'ejs')
-    .set('views', path.resolve('views'))
+app.set('view engine', 'ejs')
+app.set('views', path.resolve('views'))
 app
     .use(parser.urlencoded({extended: true}))
     .use(express.static(__dirname + "/static"))
@@ -24,7 +78,7 @@ app
 
 
 app.get('/', (req,res) => {
-    models.Message.find({})
+    Message.find({})
         .then(messages => {
             res.render('index', {messages, messageErrors, commentErrors});
             messageErrors = {};
@@ -34,7 +88,7 @@ app.get('/', (req,res) => {
 });
 
 app.post('/message/new', (req, res) => {
-    models.Message.create(req.body)
+    Message.create(req.body)
         .then(message => res.redirect('/'))
         .catch(error => {
             messageErrors.name = req.body.name;
@@ -45,9 +99,9 @@ app.post('/message/new', (req, res) => {
         });
 });
 app.post('/message/:id', (req, res) => {
-    models.Comment.create(req.body)
+    Comments.create(req.body)
         .then(comment => {
-            return models.Message.findByIdAndUpdate(req.params.id, {$push: {comments: comment}})
+            return Message.findByIdAndUpdate(req.params.id, {$push: {comments: comment}})
                 .then(message => res.redirect('/'))
         })
         .catch(error => {
@@ -61,5 +115,5 @@ app.post('/message/:id', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Express pp listening on port ${port}`);
+    console.log(`Express app listening on port ${port}`);
 });
